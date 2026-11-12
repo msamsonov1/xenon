@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RF-REBCO Plasma Propulsion Trade Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* Custom range slider styling for crisp engineering control feel */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 9999px;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -6px;
+      background-color: #38bdf8;
+      height: 20px;
+      width: 20px;
+      border-radius: 9999px;
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      background-color: #7dd3fc;
+    }
+    input[type="range"]::-moz-range-track {
+      height: 8px;
+      border-radius: 9999px;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    input[type="range"]::-moz-range-thumb {
+      background-color: #38bdf8;
+      height: 20px;
+      width: 20px;
+      border-radius: 9999px;
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+  <!-- Top Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400 font-mono font-bold text-sm">
+          RF
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white">
+            RF-REBCO Magnetic Nozzle &amp; Mars Transit Trade Model
+          </h1>
+          <p class="text-xs text-slate-400">
+            Coupled Xenon Helicon/ICRF Ionization &amp; 2G REBCO Superconducting Confinement
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-mono">
+        <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+          Bus: 2.5 MWe NEP
+        </span>
+        <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+          Propellant: Xenon (Xe)
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Primary KPI Outputs -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Specific Impulse Output -->
+      <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 shadow-lg relative overflow-hidden">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">
+          Specific Impulse (I<sub>sp</sub>)
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="ispOutput" class="text-3xl sm:text-4xl font-mono font-bold text-sky-400">5,000</span>
+          <span class="text-sm font-mono text-slate-400">sec</span>
+        </div>
+        <p id="ispNote" class="text-xs text-slate-400 mt-2">
+          Exhaust velocity: <span id="veOutput" class="text-slate-200 font-mono">49.0 km/s</span>
+        </p>
+      </div>
+
+      <!-- Time to Mars Output -->
+      <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 shadow-lg relative overflow-hidden">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">
+          Time to Mars (Brachistochrone)
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="marsMonthsOutput" class="text-3xl sm:text-4xl font-mono font-bold text-emerald-400">4.0</span>
+          <span class="text-sm font-mono text-slate-400">months</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">
+          vs. ~8.5 mo Hohmann coast (<span id="marsDaysOutput" class="text-slate-200 font-mono">120 days</span>)
+        </p>
+      </div>
+
+      <!-- Magnetic Field & Quench Energy -->
+      <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 shadow-lg">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">
+          REBCO Nozzle Field / Quench E
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="bFieldOutput" class="text-2xl sm:text-3xl font-mono font-bold text-indigo-400">2.40</span>
+          <span class="text-sm font-mono text-slate-400">Tesla</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">
+          Stored energy (&frac12;LI&sup2;): <span id="quenchEnergyOutput" class="text-slate-200 font-mono">144 kJ</span>
+        </p>
+      </div>
+
+      <!-- RF Coupling & Regulatory Status -->
+      <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-5 shadow-lg">
+        <div class="text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">
+          RF Coupling &amp; Spectrum Status
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="couplingOutput" class="text-2xl sm:text-3xl font-mono font-bold text-amber-400">94.2%</span>
+          <span class="text-xs font-mono text-slate-400">eff.</span>
+        </div>
+        <div id="ismBadge" class="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          ISM Band Compliant (13.56 MHz)
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls + Live Visualization Grid -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Interactive Sliders Panel -->
+      <div class="lg:col-span-5 rounded-2xl bg-slate-900/90 border border-slate-800 p-6 flex flex-col justify-between space-y-6">
+        <div class="space-y-6">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 border-b border-slate-800 pb-3">
+            Subsystem Control Parameters
+          </h2>
+
+          <!-- Slider 1: 2G REBCO Coil Turns -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label for="turnsSlider" class="text-sm font-medium text-slate-200">
+                2G REBCO Coil Turns (N)
+              </label>
+              <span id="turnsValue" class="text-sm font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2.5 py-0.5 rounded-lg">
+                240 turns
+              </span>
+            </div>
+            <input
+              id="turnsSlider"
+              type="range"
+              min="40"
+              max="500"
+              step="5"
+              value="240"
+              class="w-full"
+            />
+            <div class="flex justify-between text-[11px] font-mono text-slate-500">
+              <span>40 (Weak Nozzle)</span>
+              <span>240 (Nominal)</span>
+              <span>500 (High Inductance)</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Sets ampere-turns (<span class="font-mono text-slate-300">N&middot;I</span>) and magnetic nozzle confinement. Too few turns causes plasma wall loss; excessive turns spikes coil mass and <span class="font-mono text-slate-300">N&sup2;</span> quench energy without adding RF energy.
+            </p>
+          </div>
+
+          <!-- Slider 2: RF Excitation Frequency -->
+          <div class="space-y-2.5 pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between">
+              <label for="freqSlider" class="text-sm font-medium text-slate-200">
+                RF Excitation Frequency (f)
+              </label>
+              <span id="freqValue" class="text-sm font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg">
+                13.56 MHz
+              </span>
+            </div>
+            <input
+              id="freqSlider"
+              type="range"
+              min="2.00"
+              max="45.00"
+              step="0.01"
+              value="13.56"
+              class="w-full"
+            />
+            <div class="flex justify-between text-[11px] font-mono text-slate-500">
+              <span>2.00 MHz (Ion Drag)</span>
+              <span>13.56 MHz (ISM)</span>
+              <span>45.00 MHz (Skin Depth)</span>
+            </div>
+
+            <!-- Quick Frequency Presets -->
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button type="button" data-freq="6.78" class="freq-preset px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                6.78 MHz (ISM)
+              </button>
+              <button type="button" data-freq="13.56" class="freq-preset px-2.5 py-1.5 rounded-lg text-xs font-mono bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 transition">
+                13.56 MHz (Nominal ISM)
+              </button>
+              <button type="button" data-freq="27.12" class="freq-preset px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                27.12 MHz (2x Harm.)
+              </button>
+              <button type="button" data-freq="40.68" class="freq-preset px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                40.68 MHz (3x Harm.)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Physics Diagnostic Callout -->
+        <div id="diagnosticBox" class="rounded-xl bg-slate-950/90 border border-slate-800 p-3.5 text-xs text-slate-300 leading-relaxed">
+          <span class="font-semibold text-sky-400">Physics Check:</span> At 13.56 MHz and 240 REBCO turns, electrons oscillate efficiently without accelerating heavy Xe<sup>+</sup> ions into chamber walls, sustaining ~5,000 s I<sub>sp</sub> for a 4.0-month continuous-thrust Mars transit.
+        </div>
+      </div>
+
+      <!-- Interactive Canvas Visualization Panel -->
+      <div class="lg:col-span-7 rounded-2xl bg-slate-900/90 border border-slate-800 p-6 flex flex-col justify-between space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300">
+              Thruster Magnetic Nozzle &amp; Mars Trajectory Profile
+            </h2>
+            <p class="text-xs text-slate-400">
+              Top: 2G REBCO coil flux &amp; 13.56 MHz xenon plasma plume &bull; Bottom: Acceleration/Deceleration flip profile
+            </p>
+          </div>
+          <span id="regimeTag" class="self-start sm:self-auto px-2.5 py-1 rounded-lg text-xs font-mono bg-sky-500/15 text-sky-300 border border-sky-500/30">
+            Helicon Regime (&omega;<sub>ci</sub> &ll; &omega; &ll; &omega;<sub>ce</sub>)
+          </span>
+        </div>
+
+        <!-- Responsive Canvas Container -->
+        <div id="canvasContainer" class="w-full h-72 sm:h-80 rounded-xl bg-slate-950 border border-slate-800/90 overflow-hidden relative">
+          <canvas id="simCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <!-- Bottom Physics Legend -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-400 pt-1">
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800/80 p-3">
+            <div class="font-mono text-slate-200 font-semibold mb-0.5">1. RF Ionization Stage</div>
+            13.56 MHz excites light electrons (&gt;12.13 eV) while heavy Xe<sup>+</sup> ions remain unmagnetized at walls.
+          </div>
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800/80 p-3">
+            <div class="font-mono text-slate-200 font-semibold mb-0.5">2. 2G REBCO Nozzle</div>
+            External cryo-coils convert azimuthal plasma swirl into axial exhaust velocity without throat erosion.
+          </div>
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800/80 p-3">
+            <div class="font-mono text-slate-200 font-semibold mb-0.5">3. Constant-Thrust Flip</div>
+            Accelerates 50% of distance, flips at midpoint, and decelerates—cutting 8.5-mo coast to ~4 mo.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // DOM Elements
+      const turnsSlider = document.getElementById('turnsSlider');
+      const freqSlider = document.getElementById('freqSlider');
+      const turnsValue = document.getElementById('turnsValue');
+      const freqValue = document.getElementById('freqValue');
+
+      const ispOutput = document.getElementById('ispOutput');
+      const veOutput = document.getElementById('veOutput');
+      const marsMonthsOutput = document.getElementById('marsMonthsOutput');
+      const marsDaysOutput = document.getElementById('marsDaysOutput');
+      const bFieldOutput = document.getElementById('bFieldOutput');
+      const quenchEnergyOutput = document.getElementById('quenchEnergyOutput');
+      const couplingOutput = document.getElementById('couplingOutput');
+      const ismBadge = document.getElementById('ismBadge');
+      const regimeTag = document.getElementById('regimeTag');
+      const diagnosticBox = document.getElementById('diagnosticBox');
+
+      const canvas = document.getElementById('simCanvas');
+      const container = document.getElementById('canvasContainer');
+      const ctx = canvas.getContext('2d');
+
+      // Simulation State
+      const state = {
+        turns: 240,
+        freqMHz: 13.56,
+        isp: 5000,
+        veKmS: 49.05,
+        marsMonths: 4.0,
+        marsDays: 120,
+        bFieldTesla: 2.40,
+        quenchEnergyKJ: 144,
+        couplingEff: 0.942,
+        nozzleEff: 0.91,
+        ismStatus: 'compliant',
+        time: 0,
+      };
+
+      // Physics Constants & Reference Baseline
+      const G0 = 9.80665; // m/s^2
+      const MARS_DISTANCE_M = 7.83e10; // ~0.52 AU favorable opposition transfer distance (m)
+      const BUS_POWER_W = 2.5e6; // 2.5 MWe NEP spacecraft class
+      const DRY_MASS_KG = 18000; // Spacecraft dry + payload mass (kg)
+
+      // ISM Regulatory Bands (MHz +/- tolerance)
+      const ISM_BANDS = [
+        { center: 6.78, tol: 0.015, label: '6.78 MHz ISM Band' },
+        { center: 13.56, tol: 0.007, label: '13.56 MHz ISM Band' },
+        { center: 27.12, tol: 0.163, label: '27.12 MHz ISM Band' },
+        { center: 40.68, tol: 0.020, label: '40.68 MHz ISM Band' },
+      ];
+
+      /**
+       * Core Coupled Physics Model:
+       * - Coil turns N set magnetic field B (N*I), plasma wall confinement efficiency,
+       *   cryogenic parasitic load, and N^2 stored quench energy.
+       * - Frequency f sets RF-to-plasma coupling efficiency (penalizing low f < 5 MHz due to
+       *   heavy Xe+ ion wall bombardment and high f > 30 MHz due to skin-depth reflection).
+       * - Isp scales with sqrt(net_RF_power / mass_flow) * nozzle_efficiency, calibrated so
+       *   nominal (240 turns, 13.56 MHz) yields 5,000 s Isp and 4.0 months Mars transit.
+       */
+      function recalculatePhysics() {
+        const N = state.turns;
+        const f = state.freqMHz;
+
+        // 1. Magnetic Field & Inductance Scaling
+        // Nominal 240 turns @ 400 A -> 2.40 Tesla throat field
+        const B = (N / 240) * 2.40;
+        // Stored inductive energy E = 0.5 * L * I^2 scales as N^2 (nominal 144 kJ at 240 turns)
+        const quenchKJ = 144 * Math.pow(N / 240, 2);
+
+        // 2. Magnetic Nozzle Confinement & Cryo/Mass Penalty vs. Turns
+        // Saturating confinement efficiency: rises sharply up to ~200 turns, plateaus above 260
+        const confinementEff = 0.42 + 0.54 * (1 - Math.exp(-N / 85));
+        // Heavy coil structural + cryocooler penalty if N is pushed excessively high (>320 turns)
+        const massPenaltyFactor = N > 300 ? 1 - 0.00035 * (N - 300) : 1.0;
+
+        // 3. RF Plasma Coupling Efficiency vs. Frequency (Xenon Helicon/ICRF)
+        // Below ~6 MHz: heavy Xe+ ions oscillate into dielectric walls (sputtering & power loss)
+        // Sweet spot: ~10 - 22 MHz (electrons magnetized & heated, Xe+ ions unmagnetized)
+        // Above ~30 MHz: shallow plasma skin depth reduces core wave penetration
+        const lowFreqLoss = Math.exp(-Math.pow(Math.max(0, 11.5 - f) / 6.2, 2));
+        const highFreqLoss = Math.exp(-Math.pow(Math.max(0, f - 20.0) / 28.0, 2));
+        const rfCoupling = Math.max(0.32, Math.min(0.96, 0.945 * lowFreqLoss * highFreqLoss));
+
+        // 4. Effective Specific Impulse (calibrated to 5,000 s at N=240, f=13.56 MHz)
+        const nominalTotalEff = (0.42 + 0.54 * (1 - Math.exp(-240 / 85))) * 0.942;
+        const currentTotalEff = confinementEff * rfCoupling;
+        const isp = 5000 * Math.sqrt(currentTotalEff / nominalTotalEff) * massPenaltyFactor;
+        const ve = isp * G0; // m/s
+
+        // 5. Continuous-Thrust Brachistochrone Mars Transit Time
+        // Thrust F = (2 * eta * P_bus) / v_e
+        // Transit time t = 2 * sqrt(D / a_avg)
+        const thrustN = (2 * currentTotalEff * BUS_POWER_W) / ve;
+        // Propellant mass scales inversely with Isp for a fixed delta-V mission
+        const propellantMass = 11500 * (5000 / Math.max(1500, isp));
+        const avgMass = (DRY_MASS_KG + propellantMass * 0.5) / massPenaltyFactor;
+        const avgAccel = thrustN / avgMass; // m/s^2
+
+        // Calibrate baseline so N=240, f=13.56 MHz equals exactly 4.0 months (120 days)
+        const rawSeconds = 2 * Math.sqrt(MARS_DISTANCE_M / avgAccel);
+        const baselineRawSeconds = 2 * Math.sqrt(MARS_DISTANCE_M / ((2 * nominalTotalEff * BUS_POWER_W) / (5000 * G0) / (DRY_MASS_KG + 5750)));
+        const calibratedDays = 120 * (rawSeconds / baselineRawSeconds);
+        const calibratedMonths = calibratedDays / 30.0;
+
+        // 6. Check ITU/FCC Part 18 ISM Band Compliance
+        let matchedBand = null;
+        for (const band of ISM_BANDS) {
+          if (Math.abs(f - band.center) <= band.tol) {
+            matchedBand = band;
+            break;
+          }
+        }
+
+        // Update state
+        state.bFieldTesla = B;
+        state.quenchEnergyKJ = quenchKJ;
+        state.couplingEff = rfCoupling;
+        state.nozzleEff = confinementEff;
+        state.isp = Math.round(isp);
+        state.veKmS = ve / 1000;
+        state.marsDays = Math.round(calibratedDays);
+        state.marsMonths = calibratedMonths;
+        state.ismStatus = matchedBand ? matchedBand.label : null;
+
+        updateUI();
+      }
+
+      /**
+       * Updates all numeric readouts, badges, and engineering diagnostic text
+       */
+      function updateUI() {
+        turnsValue.textContent = `${state.turns} turns`;
+        freqValue.textContent = `${state.freqMHz.toFixed(2)} MHz`;
+
+        ispOutput.textContent = state.isp.toLocaleString();
+        veOutput.textContent = `${state.veKmS.toFixed(1)} km/s`;
+
+        marsMonthsOutput.textContent = state.marsMonths.toFixed(1);
+        marsDaysOutput.textContent = `${state.marsDays} days`;
+
+        bFieldOutput.textContent = state.bFieldTesla.toFixed(2);
+        quenchEnergyOutput.textContent =
+          state.quenchEnergyKJ >= 1000
+            ? `${(state.quenchEnergyKJ / 1000).toFixed(2)} MJ`
+            : `${Math.round(state.quenchEnergyKJ)} kJ`;
+
+        couplingOutput.textContent = `${(state.couplingEff * 100).toFixed(1)}%`;
+
+        // Color feedback on Mars transit time
+        if (state.marsMonths <= 4.3) {
+          marsMonthsOutput.className = 'text-3xl sm:text-4xl font-mono font-bold text-emerald-400';
+        } else if (state.marsMonths <= 6.0) {
+          marsMonthsOutput.className = 'text-3xl sm:text-4xl font-mono font-bold text-amber-400';
+        } else {
+          marsMonthsOutput.className = 'text-3xl sm:text-4xl font-mono font-bold text-rose-400';
+        }
+
+        // ISM Band Regulatory Badge
+        if (state.ismStatus) {
+          ismBadge.className =
+            'mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+          ismBadge.textContent = `ISM Compliant (${state.ismStatus})`;
+        } else {
+          ismBadge.className =
+            'mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30';
+          ismBadge.textContent = 'Non-ISM (Requires RF Shielding)';
+        }
+
+        // Plasma Frequency Regime Tag
+        if (state.freqMHz < 6.5) {
+          regimeTag.textContent = 'Low-Freq Regime (Xe+ Wall Sputtering Risk)';
+          regimeTag.className =
+            'self-start sm:self-auto px-2.5 py-1 rounded-lg text-xs font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30';
+        } else if (state.freqMHz <= 28.0) {
+          regimeTag.textContent = 'Helicon Regime (ω_ci ≪ ω ≪ ω_ce)';
+          regimeTag.className =
+            'self-start sm:self-auto px-2.5 py-1 rounded-lg text-xs font-mono bg-sky-500/15 text-sky-300 border border-sky-500/30';
+        } else {
+          regimeTag.textContent = 'High-Freq Regime (Skin-Depth Limited)';
+          regimeTag.className =
+            'self-start sm:self-auto px-2.5 py-1 rounded-lg text-xs font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30';
+        }
+
+        // Contextual Physics Diagnostic
+        let note = '';
+        if (state.turns < 110) {
+          note =
+            'Low Coil Turns Warning: Weak magnetic nozzle (<1.1 T) allows hot xenon plasma to strike chamber walls, dropping effective Isp and extending Mars transit.';
+        } else if (state.turns > 380) {
+          note = `High Turn Count Trade-off: Magnetic field reaches ${state.bFieldTesla.toFixed(
+            2
+          )} T, but stored quench energy climbs to ${Math.round(
+            state.quenchEnergyKJ
+          )} kJ (L ∝ N²) and coil mass penalizes acceleration without adding RF power.`;
+        } else if (state.freqMHz < 6.5) {
+          note =
+            'Low Frequency Penalty: Below ~6.5 MHz, heavy Xe+ ions respond to the oscillating RF field and bombard the dielectric liner, reducing coupling efficiency.';
+        } else if (Math.abs(state.freqMHz - 13.56) < 0.01) {
+          note =
+            'Nominal Operating Point: 13.56 MHz sits in the protected ITU/FCC ISM band (2x/3x harmonics align with 27.12 & 40.68 MHz) with strong electron heating and 2G REBCO nozzle confinement.';
+        } else {
+          note = `Off-ISM Frequency (${state.freqMHz.toFixed(
+            2
+          )} MHz): Plasma ionization physics remains effective in the helicon band, but ground testing requires full Faraday shielding outside FCC Part 18 ISM windows.`;
+        }
+
+        diagnosticBox.innerHTML = `<span class="font-semibold text-sky-400">Physics Check:</span> ${note}`;
+      }
+
+      /**
+       * Resizes the HTML5 canvas smoothly for crisp retina rendering
+       */
+      function resizeCanvas() {
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      /**
+       * Renders live schematic of:
+       * 1. RF antenna coils + 2G REBCO superconducting windings + expanding plasma plume
+       * 2. Earth-to-Mars continuous-thrust acceleration/deceleration trajectory bar
+       */
+      function renderCanvas() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        ctx.clearRect(0, 0, width, height);
+
+        // Subtle background grid
+        ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
+        ctx.lineWidth = 1;
+        const step = 24;
+        for (let x = 0; x < width; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < height; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        // --- TOP SECTION: Thruster & Magnetic Nozzle Visualization ---
+        const nozzleCenterY = height * 0.36;
+        const chamberX = width * 0.14;
+        const chamberW = width * 0.24;
+        const chamberH = 44;
+
+        // Expanding Magnetic Nozzle Plume
+        const plumeStartX = chamberX + chamberW;
+        const plumeEndX = width * 0.92;
+        // Higher B-field (turns) collimates plume tighter; low turns diverges widely
+        const divergence = Math.max(28, 95 - (state.turns / 500) * 62);
+        const plumeIntensity = Math.min(1, state.couplingEff * (state.isp / 5200));
+
+        const plumeGrad = ctx.createLinearGradient(plumeStartX, nozzleCenterY, plumeEndX, nozzleCenterY);
+        plumeGrad.addColorStop(0, `rgba(56, 189, 248, ${0.55 * plumeIntensity})`);
+        plumeGrad.addColorStop(0.5, `rgba(99, 102, 241, ${0.28 * plumeIntensity})`);
+        plumeGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+
+        ctx.fillStyle = plumeGrad;
+        ctx.beginPath();
+        ctx.moveTo(plumeStartX, nozzleCenterY - chamberH * 0.45);
+        ctx.bezierCurveTo(
+          plumeStartX + (plumeEndX - plumeStartX) * 0.35,
+          nozzleCenterY - chamberH * 0.55,
+          plumeStartX + (plumeEndX - plumeStartX) * 0.7,
+          nozzleCenterY - divergence,
+          plumeEndX,
+          nozzleCenterY - divergence * 1.15
+        );
+        ctx.lineTo(plumeEndX, nozzleCenterY + divergence * 1.15);
+        ctx.bezierCurveTo(
+          plumeStartX + (plumeEndX - plumeStartX) * 0.7,
+          nozzleCenterY + divergence,
+          plumeStartX + (plumeEndX - plumeStartX) * 0.35,
+          nozzleCenterY + chamberH * 0.55,
+          plumeStartX,
+          nozzleCenterY + chamberH * 0.45
+        );
+        ctx.closePath();
+        ctx.fill();
+
+        // Animated Plasma Ion Stream Particles
+        const particleCount = 26;
+        const speedScale = (state.veKmS / 49.0) * 2.4;
+        for (let i = 0; i < particleCount; i++) {
+          const seed = (i * 0.37 + state.time * 0.015 * speedScale) % 1;
+          const px = chamberX + 12 + seed * (plumeEndX - chamberX - 16);
+          const spreadFactor = Math.max(0, (px - plumeStartX) / (plumeEndX - plumeStartX));
+          const lane = ((i % 7) - 3) / 3;
+          const py =
+            nozzleCenterY +
+            lane * (chamberH * 0.32 + spreadFactor * divergence * 0.85) +
+            Math.sin(state.time * 0.1 + i) * 1.5;
+
+          ctx.fillStyle =
+            px < plumeStartX
+              ? `rgba(250, 204, 21, ${0.85 * state.couplingEff})`
+              : `rgba(125, 211, 252, ${(1 - spreadFactor * 0.85) * 0.9})`;
+          ctx.beginPath();
+          ctx.arc(px, py, px < plumeStartX ? 2.3 : 2.0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Dielectric Discharge Chamber (Quartz / Boron Nitride)
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(chamberX, nozzleCenterY - chamberH / 2, chamberW, chamberH, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // RF Helicon Antenna Windings (pulsing at scaled RF frequency)
+        const rfPulse = 0.5 + 0.5 * Math.sin(state.time * (state.freqMHz * 0.04));
+        ctx.strokeStyle = `rgba(250, 204, 21, ${0.45 + 0.55 * rfPulse})`;
+        ctx.lineWidth = 2.5;
+        const rfCoilCount = 4;
+        for (let c = 0; c < rfCoilCount; c++) {
+          const cx = chamberX + 16 + c * 16;
+          ctx.beginPath();
+          ctx.moveTo(cx, nozzleCenterY - chamberH / 2 - 4);
+          ctx.lineTo(cx, nozzleCenterY + chamberH / 2 + 4);
+          ctx.stroke();
+        }
+
+        // 2G REBCO Superconducting Cryo-Coils (number of drawn rings scales with turns slider)
+        const rebcoX = plumeStartX - 24;
+        const visibleRings = Math.max(3, Math.min(14, Math.round(state.turns / 35)));
+        const ringWidth = 26;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        for (let r = 0; r < visibleRings; r++) {
+          const rx = rebcoX - ringWidth / 2 + (r / Math.max(1, visibleRings - 1)) * ringWidth;
+          // Top cryo-coil cross-section
+          ctx.beginPath();
+          ctx.moveTo(rx, nozzleCenterY - chamberH / 2 - 14);
+          ctx.lineTo(rx, nozzleCenterY - chamberH / 2 - 4);
+          ctx.stroke();
+          // Bottom cryo-coil cross-section
+          ctx.beginPath();
+          ctx.moveTo(rx, nozzleCenterY + chamberH / 2 + 4);
+          ctx.lineTo(rx, nozzleCenterY + chamberH / 2 + 14);
+          ctx.stroke();
+        }
+
+        // Labels on Thruster Schematic
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#facc15';
+        ctx.fillText(`RF ${state.freqMHz.toFixed(2)} MHz`, chamberX, nozzleCenterY - chamberH / 2 - 14);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`2G REBCO (${state.turns}T)`, rebcoX - 28, nozzleCenterY + chamberH / 2 + 28);
+
+        // --- BOTTOM SECTION: Earth-to-Mars Continuous Thrust Timeline ---
+        const trackY = height * 0.80;
+        const earthX = width * 0.14;
+        const marsX = width * 0.88;
+        const midX = (earthX + marsX) / 2;
+
+        // Baseline Track
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(earthX, trackY);
+        ctx.lineTo(marsX, trackY);
+        ctx.stroke();
+
+        // Acceleration Phase (First 50%)
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(earthX, trackY);
+        ctx.lineTo(midX, trackY);
+        ctx.stroke();
+
+        // Deceleration Phase (Second 50%)
+        ctx.strokeStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(midX, trackY);
+        ctx.lineTo(marsX, trackY);
+        ctx.stroke();
+
+        // Flip Midpoint Marker
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(midX, trackY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Animated Spacecraft Marker along Brachistochrone curve
+        const tripProgress = (state.time * 0.006 * (4.0 / Math.max(2.5, state.marsMonths))) % 1;
+        // S-curve velocity profile: accelerates to midpoint, decelerates to Mars
+        const easedProgress =
+          tripProgress < 0.5
+            ? 2 * tripProgress * tripProgress
+            : 1 - Math.pow(-2 * tripProgress + 2, 2) / 2;
+        const shipX = earthX + easedProgress * (marsX - earthX);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(shipX, trackY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Earth & Mars Nodes
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(earthX, trackY, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.arc(marsX, trackY, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Trajectory Labels
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillText('Earth', earthX - 16, trackY + 22);
+        ctx.fillText(`Mars (${state.marsMonths.toFixed(1)} mo)`, marsX - 36, trackY + 22);
+
+        ctx.fillStyle = '#34d399';
+        ctx.fillText(`Accel (${(state.marsMonths / 2).toFixed(1)} mo)`, earthX + (midX - earthX) * 0.22, trackY - 10);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`Flip & Decel (${(state.marsMonths / 2).toFixed(1)} mo)`, midX + (marsX - midX) * 0.16, trackY - 10);
+      }
+
+      // Animation Loop
+      function animate() {
+        state.time += 1;
+        renderCanvas();
+        requestAnimationFrame(animate);
+      }
+
+      // Event Listeners
+      turnsSlider.addEventListener('input', (e) => {
+        state.turns = parseInt(e.target.value, 10);
+        recalculatePhysics();
+      });
+
+      freqSlider.addEventListener('input', (e) => {
+        state.freqMHz = parseFloat(e.target.value);
+        recalculatePhysics();
+      });
+
+      document.querySelectorAll('.freq-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const val = parseFloat(btn.getAttribute('data-freq'));
+          state.freqMHz = val;
+          freqSlider.value = val.toFixed(2);
+          recalculatePhysics();
+        });
+      });
+
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        renderCanvas();
+      });
+
+      // Initialize on load
+      window.addEventListener('load', () => {
+        resizeCanvas();
+        recalculatePhysics();
+        animate();
+      });
+    })();
+  </script>
+</body>
+</html>
